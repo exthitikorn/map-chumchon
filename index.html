@@ -286,83 +286,106 @@
             <i data-lucide="x"></i>
           </button>
         </header>
-        <form id="pinForm">
-          <label for="communityName">ชื่อชุมชน</label>
-          <input id="communityName" name="communityName" required />
+        <form id="pinForm" class="pin-form">
+          <div class="pin-form__grid">
+            <div class="pin-form__col">
+              <div class="pin-form__field">
+                <label for="communityName">ชื่อชุมชน</label>
+                <input id="communityName" name="communityName" required />
+              </div>
 
-          <label for="districtName">เขต</label>
-          <div class="district-autocomplete">
-            <input
-              id="districtName"
-              name="districtName"
-              type="text"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-              aria-controls="districtSuggestions"
-              aria-autocomplete="list"
-              required
-            />
-            <ul
-              id="districtSuggestions"
-              class="district-autocomplete__list"
-              role="listbox"
-              hidden
-            ></ul>
-          </div>
+              <div class="pin-form__field">
+                <label for="districtName">เขต</label>
+                <div class="district-autocomplete">
+                  <input
+                    id="districtName"
+                    name="districtName"
+                    type="text"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-expanded="false"
+                    aria-controls="districtSuggestions"
+                    aria-autocomplete="list"
+                    required
+                  />
+                  <ul
+                    id="districtSuggestions"
+                    class="district-autocomplete__list"
+                    role="listbox"
+                    hidden
+                  ></ul>
+                </div>
+              </div>
 
-          <label for="address">ที่อยู่</label>
-          <textarea id="address" name="address" rows="2"></textarea>
+              <div class="pin-form__field">
+                <label for="communityType">ประเภทชุมชน</label>
+                <select id="communityType" name="communityType">
+                  <option value="">ไม่ระบุ</option>
+                  <option value="ชุมชนเมือง">ชุมชนเมือง</option>
+                  <option value="ชุมชนแออัด">ชุมชนแออัด</option>
+                  <option value="ชุมชนชานเมือง">ชุมชนชานเมือง</option>
+                  <option value="ชุมชนอาคารสูง">ชุมชนอาคารสูง</option>
+                  <option value="ชุมชนหมู่บ้านจัดสรร">ชุมชนหมู่บ้านจัดสรร</option>
+                </select>
+              </div>
 
-          <label for="communityType">ประเภทชุมชน</label>
-          <select id="communityType" name="communityType">
-            <option value="">ไม่ระบุ</option>
-            <option value="ชุมชนเมือง">ชุมชนเมือง</option>
-            <option value="ชุมชนแออัด">ชุมชนแออัด</option>
-            <option value="ชุมชนชานเมือง">ชุมชนชานเมือง</option>
-            <option value="ชุมชนอาคารสูง">ชุมชนอาคารสูง</option>
-            <option value="ชุมชนหมู่บ้านจัดสรร">ชุมชนหมู่บ้านจัดสรร</option>
-          </select>
+              <div class="pin-form__field">
+                <label for="address">ที่อยู่</label>
+                <textarea id="address" name="address" rows="3"></textarea>
+              </div>
+            </div>
 
-          <label for="latitude">Latitude</label>
-          <input id="latitude" name="latitude" type="number" step="any" required />
+            <div class="pin-form__col">
+              <div class="pin-form__coords">
+                <div class="pin-form__field">
+                  <label for="latitude">Latitude</label>
+                  <input id="latitude" name="latitude" type="number" step="any" required />
+                </div>
+                <div class="pin-form__field">
+                  <label for="longitude">Longitude</label>
+                  <input id="longitude" name="longitude" type="number" step="any" required />
+                </div>
+              </div>
 
-          <label for="longitude">Longitude</label>
-          <input id="longitude" name="longitude" type="number" step="any" required />
+              <div class="pin-form__field">
+                <label for="note">รายละเอียดเพิ่มเติม</label>
+                <textarea id="note" name="note" rows="3"></textarea>
+              </div>
 
-          <label for="note">รายละเอียดเพิ่มเติม</label>
-          <textarea id="note" name="note" rows="2"></textarea>
-
-          <label for="pinImageFile">รูปประกอบ</label>
-          <div class="pin-image-field">
-            <figure
-              id="pinImagePreview"
-              class="pin-image-field__preview"
-              hidden
-            >
-              <img id="pinImagePreviewImg" alt="" />
-              <button
-                id="removePinImageBtn"
-                type="button"
-                class="pin-image-field__remove"
-              >
-                ลบรูป
-              </button>
-            </figure>
-            <input
-              id="pinImageFile"
-              name="pinImageFile"
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,image/gif"
-            />
-            <p class="pin-image-field__hint">หรือใส่ URL / path รูป (1 บรรทัดต่อ 1 รูป)</p>
-            <textarea
-              id="pinImageUrl"
-              name="pinImageUrl"
-              rows="3"
-              placeholder="images/example.png หรือ https://..."
-            ></textarea>
+              <div class="pin-form__field">
+                <label for="pinImageFile">รูปประกอบ</label>
+                <div class="pin-image-field">
+                  <figure
+                    id="pinImagePreview"
+                    class="pin-image-field__preview"
+                    hidden
+                  >
+                    <img id="pinImagePreviewImg" alt="" />
+                    <button
+                      id="removePinImageBtn"
+                      type="button"
+                      class="pin-image-field__remove"
+                    >
+                      ลบรูป
+                    </button>
+                  </figure>
+                  <input
+                    id="pinImageFile"
+                    name="pinImageFile"
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                  />
+                  <p class="pin-image-field__hint">หรือใส่ URL / path รูป (1 บรรทัดต่อ 1 รูป)</p>
+                  <textarea
+                    id="pinImageUrl"
+                    name="pinImageUrl"
+                    rows="3"
+                    placeholder="images/example.png หรือ https://..."
+                  ></textarea>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="modal-actions">
