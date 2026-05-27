@@ -1,0 +1,10 @@
+{
+  "name": "bangkok-community-map",
+  "private": true,
+  "scripts": {
+    "build:zones": "node scripts/build-zone-merges.js"
+  },
+  "devDependencies": {
+    "@turf/turf": "^7.2.0"
+  }
+}

@@ -115,6 +115,25 @@ node scripts/extract-districts.js path/to/downloaded-page.html
 
 ผลลัพธ์จะเขียนทับ `data/districts.json`
 
+3. สร้าง polygon รวมตามสี (ใช้ตอน zoom out บนแผนที่):
+
+```bash
+npm install
+npm run build:zones
+```
+
+ผลลัพธ์จะเขียนทับ `data/zone-merges.json`
+
+### โหมดแสดงเขตตามระดับ zoom (โหมด «ทุกเขต»)
+
+| Zoom | การแสดง |
+|------|---------|
+| ≥ 13 | แสดง polygon รายเขต (50 เขต) |
+| 10–12 | รวม polygon ตามสีเดิม (8 กลุ่ม) |
+| ≤ 9 | รวมเป็น 1 พื้นที่ทั้งกรุงเทพ |
+
+คลิกพื้นที่ที่รวมแล้วจะซูมเข้าเพื่อดูรายละเอียด
+
 ---
 
 ## รูปแบบข้อมูล (อ้างอิง)

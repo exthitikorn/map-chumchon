@@ -1,6 +1,10 @@
 const BANGKOK_CENTER = [13.7563, 100.5018];
 const DEFAULT_ZOOM = 12;
 const COMMUNITY_FOCUS_ZOOM = 17;
+/** แสดง polygon รายเขตเมื่อ zoom >= ค่านี้ */
+const ZONE_DETAIL_MIN_ZOOM = 13;
+/** รวมทั้งกรุงเทพเป็น 1 ชิ้นเมื่อ zoom <= ค่านี้ */
+const ZONE_SINGLE_MAX_ZOOM = 9;
 const STORAGE_KEY = "customCommunityPins";
 const OVERRIDES_KEY = "communityPinOverrides";
 const DELETED_IDS_KEY = "deletedCommunityPinIds";
@@ -93,9 +97,12 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
+map.on("zoomend", onMapZoomEnd);
 
 let districtGeoJson;
+let zoneMerges;
 let districtLayer;
+let currentZoneMergeLevel = null;
 let districtNamesCache = null;
 let closeDistrictNameAutocomplete = () => {};
 let openDistrictNameAutocomplete = () => {};
@@ -372,6 +379,102 @@ function getFeatureCenter(feature) {
   return L.geoJSON(feature).getBounds().getCenter();
 }
 
+function getZoneMergeLevel(zoom = map.getZoom()) {
+  if (zoom <= ZONE_SINGLE_MAX_ZOOM) {
+    return "single";
+  }
+  if (zoom < ZONE_DETAIL_MIN_ZOOM) {
+    return "color";
+  }
+  return "detail";
+}
+
+function getMergedFeatureDistricts(feature) {
+  const districts = feature.properties.districts;
+  if (Array.isArray(districts) && districts.length) {
+    return districts;
+  }
+  if (feature.properties.district) {
+    return [feature.properties.district];
+  }
+  return [];
+}
+
+function getMergedFeaturePinCount(feature) {
+  return getMergedFeatureDistricts(feature).reduce(
+    (sum, district) => sum + getDistrictPinCount(district),
+    0
+  );
+}
+
+function getDistrictDisplayFeatures() {
+  const selectedDistrict = getFilterDistrict();
+  if (!districtGeoJson) {
+    return [];
+  }
+  if (selectedDistrict !== "all") {
+    return districtGeoJson.features.filter(
+      (feature) => feature.properties.district === selectedDistrict
+    );
+  }
+  if (!zoneMerges) {
+    return districtGeoJson.features;
+  }
+  const level = getZoneMergeLevel();
+  if (level === "single") {
+    return zoneMerges.single.features;
+  }
+  if (level === "color") {
+    return zoneMerges.byColor.features;
+  }
+  return districtGeoJson.features;
+}
+
+function getDistrictLayerTooltip(feature) {
+  const overview = isDistrictOverviewMode();
+  const mergeLevel = feature.properties.mergeLevel;
+  const count = getMergedFeaturePinCount(feature);
+  const districts = getMergedFeatureDistricts(feature);
+
+  if (mergeLevel === "all") {
+    return `กรุงเทพมหานคร<br><strong>${count}</strong> ชุมชน`;
+  }
+  if (mergeLevel === "color") {
+    return `${districts.length} เขต · <strong>${count}</strong> ชุมชน`;
+  }
+
+  const district = feature.properties.district;
+  return overview
+    ? `เขต${district}<br><strong>${count}</strong> ชุมชน`
+    : `เขต${district} · ${count} ชุมชน`;
+}
+
+function handleDistrictLayerClick(feature, layer) {
+  const mergeLevel = feature.properties.mergeLevel;
+  if (mergeLevel === "all") {
+    map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: ZONE_DETAIL_MIN_ZOOM - 1 });
+    return;
+  }
+  if (mergeLevel === "color") {
+    map.fitBounds(layer.getBounds(), { padding: [48, 48], maxZoom: ZONE_DETAIL_MIN_ZOOM });
+    return;
+  }
+  focusDistrict(feature.properties.district);
+}
+
+function onMapZoomEnd() {
+  if (!isDistrictOverviewMode() || !zoneMerges) {
+    return;
+  }
+  const level = getZoneMergeLevel();
+  if (level === currentZoneMergeLevel) {
+    return;
+  }
+  currentZoneMergeLevel = level;
+  renderDistricts();
+  renderDistrictCounts();
+}
+
 function normalizeSearchText(text) {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -574,10 +677,18 @@ function renderDistrictCounts() {
     return;
   }
 
-  for (const feature of districtGeoJson.features) {
-    const district = feature.properties.district;
-    const count = getDistrictPinCount(district);
+  const features = getDistrictDisplayFeatures();
+  for (const feature of features) {
+    const count = getMergedFeaturePinCount(feature);
     const center = getFeatureCenter(feature);
+    const districts = getMergedFeatureDistricts(feature);
+    const mergeLevel = feature.properties.mergeLevel;
+    const tooltip =
+      mergeLevel === "all"
+        ? `กรุงเทพฯ · ${count} ชุมชน`
+        : mergeLevel === "color"
+          ? `${districts.length} เขต · ${count} ชุมชน`
+          : `เขต${feature.properties.district} · ${count} ชุมชน`;
 
     const label = L.marker(center, {
       icon: L.divIcon({
@@ -590,7 +701,7 @@ function renderDistrictCounts() {
       keyboard: false,
       zIndexOffset: 400
     });
-    label.bindTooltip(`เขต${district} · ${count} ชุมชน`, {
+    label.bindTooltip(tooltip, {
       direction: "top",
       offset: [0, -20]
     });
@@ -603,28 +714,22 @@ function renderDistricts() {
     map.removeLayer(districtLayer);
   }
 
-  const selectedDistrict = getFilterDistrict();
+  if (!districtGeoJson) {
+    return;
+  }
+
   const overview = isDistrictOverviewMode();
-  const filteredFeatures =
-    overview
-      ? districtGeoJson.features
-      : districtGeoJson.features.filter(
-          (feature) => feature.properties.district === selectedDistrict
-        );
+  const filteredFeatures = getDistrictDisplayFeatures();
+  currentZoneMergeLevel = overview && zoneMerges ? getZoneMergeLevel() : "detail";
 
   districtLayer = L.geoJSON(
     { type: "FeatureCollection", features: filteredFeatures },
     {
       style: geoJsonStyle,
       onEachFeature(feature, layer) {
-        const district = feature.properties.district;
-        const count = getDistrictPinCount(district);
-        const tooltip = overview
-          ? `เขต${district}<br><strong>${count}</strong> ชุมชน`
-          : `เขต${district} · ${count} ชุมชน`;
-        layer.bindTooltip(tooltip, { sticky: overview });
+        layer.bindTooltip(getDistrictLayerTooltip(feature), { sticky: overview });
         layer.on({
-          click: () => focusDistrict(district),
+          click: () => handleDistrictLayerClick(feature, layer),
           mouseover: highlightDistrict,
           mouseout: resetDistrictHighlight
         });
@@ -1048,17 +1153,22 @@ function closeConfirm(result) {
 }
 
 function openSearch() {
+  if (narrowLayoutMq.matches) {
+    setMapPanelCollapsed(true);
+  }
   searchShell.hidden = false;
   openSearchBtn.classList.add("is-active");
   searchInput.focus();
   initLucideIcons(searchShell);
   renderSearchResults();
+  scheduleMapResize();
 }
 
 function closeSearch() {
   searchShell.hidden = true;
   openSearchBtn.classList.remove("is-active");
   hideSearchResults();
+  scheduleMapResize();
 }
 
 function renderPinTable() {
@@ -1214,12 +1324,14 @@ async function deletePin(id) {
 }
 
 async function loadData() {
-  const [districtRes, pinRes] = await Promise.all([
+  const [districtRes, mergeRes, pinRes] = await Promise.all([
     fetch("./data/districts.json"),
+    fetch("./data/zone-merges.json"),
     fetch("./data/community-pins.json")
   ]);
 
   districtGeoJson = await districtRes.json();
+  zoneMerges = await mergeRes.json();
   bangkokBounds = L.geoJSON(districtGeoJson).getBounds();
   staticPinsCache = await pinRes.json();
   rebuildAllPins();
@@ -1227,6 +1339,7 @@ async function loadData() {
   setFilterDistrict("all");
   refreshMapData();
   showFullBangkokMap();
+  scheduleMapResize();
 }
 
 function openPinModalForCreate() {
@@ -1449,14 +1562,47 @@ communityList.addEventListener("click", (event) => {
 
 const mapPanel = document.getElementById("mapPanel");
 const togglePanelBtn = document.getElementById("togglePanelBtn");
-togglePanelBtn?.addEventListener("click", () => {
-  const collapsed = mapPanel.classList.toggle("map-panel--collapsed");
+const narrowLayoutMq = window.matchMedia("(max-width: 768px)");
+
+function setMapPanelCollapsed(collapsed) {
+  if (!mapPanel || !togglePanelBtn) {
+    return;
+  }
+  mapPanel.classList.toggle("map-panel--collapsed", collapsed);
   togglePanelBtn.setAttribute("aria-expanded", String(!collapsed));
   togglePanelBtn.setAttribute(
     "aria-label",
     collapsed ? "ขยายแผงควบคุม" : "ย่อแผงควบคุม"
   );
+}
+
+togglePanelBtn?.addEventListener("click", () => {
+  setMapPanelCollapsed(!mapPanel.classList.contains("map-panel--collapsed"));
 });
+
+function refreshMapSize() {
+  map.invalidateSize({ animate: false });
+}
+
+let mapResizeTimer;
+function scheduleMapResize() {
+  window.clearTimeout(mapResizeTimer);
+  mapResizeTimer = window.setTimeout(refreshMapSize, 120);
+}
+
+function initResponsiveLayout() {
+  if (narrowLayoutMq.matches) {
+    setMapPanelCollapsed(true);
+  }
+
+  narrowLayoutMq.addEventListener("change", scheduleMapResize);
+  window.addEventListener("resize", scheduleMapResize);
+  window.addEventListener("orientationchange", () => {
+    window.setTimeout(refreshMapSize, 150);
+  });
+}
+
+initResponsiveLayout();
 
 initLucideIcons();
 initDistrictAutocompletes();

@@ -8,6 +8,9 @@ page28.html
 *.html
 !index.html
 
+# Dependencies
+node_modules/
+
 # OS
 .DS_Store
 Thumbs.db
