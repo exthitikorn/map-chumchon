@@ -1,0 +1,14 @@
+# Import cache (re-download with scripts/import-community-csv.js)
+data/community-source.csv
+
+# One-off downloads / scratch
+tmp-*
+*.tmp
+page28.html
+*.html
+!index.html
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

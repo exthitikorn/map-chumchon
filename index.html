@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bangkok Community Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <main class="map-shell">
+        <div id="map"></div>
+
+        <div
+          id="typeLegend"
+          class="type-legend"
+          role="group"
+          aria-label="สีหมุดตามประเภทชุมชน"
+        ></div>
+
+        <aside id="mapPanel" class="map-panel">
+          <header class="map-panel__header">
+            <h1 class="map-panel__title">แผนที่ชุมชนกรุงเทพฯ</h1>
+            <button
+              id="togglePanelBtn"
+              type="button"
+              class="map-panel__toggle"
+              aria-expanded="true"
+              aria-controls="mapPanelBody"
+              aria-label="ย่อแผงควบคุม"
+            >
+              <span class="map-panel__toggle-icon" aria-hidden="true">›</span>
+            </button>
+          </header>
+
+          <div id="mapPanelBody" class="map-panel__body">
+            <p class="hint">
+              เลือกเขตและประเภทชุมชน ดูตำแหน่งบนแผนที่ เพิ่มหมุดใหม่ และคลิกหมุดเพื่อดูรายละเอียด
+            </p>
+
+            <label for="districtFilter">Filter เขต</label>
+            <div class="district-autocomplete">
+              <input type="hidden" id="districtFilterValue" value="all" />
+              <input
+                id="districtFilter"
+                type="text"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="districtFilterSuggestions"
+                aria-autocomplete="list"
+                placeholder="ทุกเขต"
+              />
+              <ul
+                id="districtFilterSuggestions"
+                class="district-autocomplete__list"
+                role="listbox"
+                hidden
+              ></ul>
+            </div>
+
+            <label for="typeFilter">ประเภทชุมชน</label>
+            <select id="typeFilter">
+              <option value="all">ทุกประเภท</option>
+              <option value="ชุมชนเมือง">ชุมชนเมือง</option>
+              <option value="ชุมชนแออัด">ชุมชนแออัด</option>
+              <option value="ชุมชนชานเมือง">ชุมชนชานเมือง</option>
+              <option value="ชุมชนอาคารสูง">ชุมชนอาคารสูง</option>
+              <option value="ชุมชนหมู่บ้านจัดสรร">ชุมชนหมู่บ้านจัดสรร</option>
+            </select>
+
+            <section class="community-list" aria-labelledby="communityListHeading">
+              <div class="community-list__header">
+                <h2 id="communityListHeading" class="community-list__title">
+                  ชุมชนในระบบ
+                </h2>
+                <span id="communityListCount" class="community-list__count">0</span>
+              </div>
+              <ul
+                id="communityList"
+                class="community-list__items"
+                role="list"
+              ></ul>
+              <p id="communityListEmpty" class="community-list__empty" hidden>
+                ยังไม่มีชุมชนในเขตที่เลือก
+              </p>
+            </section>
+
+          </div>
+        </aside>
+
+        <div id="searchShell" class="search-shell" hidden>
+          <div
+            id="searchResults"
+            class="search-results"
+            role="region"
+            aria-label="ผลการค้นหา"
+            hidden
+          >
+            <ul
+              id="searchResultsList"
+              class="search-results__list"
+              role="listbox"
+            ></ul>
+            <p id="searchResultsEmpty" class="search-results__empty" hidden>
+              ไม่พบชุมชนที่ตรงหรือใกล้เคียงกับคำค้นหา
+            </p>
+          </div>
+          <div id="searchBar" class="search-bar">
+            <span class="search-bar__icon" aria-hidden="true">
+              <i data-lucide="search"></i>
+            </span>
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="ค้นหาชื่อชุมชน เขต ที่อยู่... (รองรับคำใกล้เคียง)"
+              autocomplete="off"
+              aria-expanded="false"
+              aria-controls="searchResultsList"
+            />
+            <button
+              id="closeSearchBtn"
+              type="button"
+              class="icon-btn"
+              aria-label="ปิดการค้นหา"
+            >
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </div>
+
+        <nav class="map-dock" aria-label="เครื่องมือแผนที่">
+          <button
+            id="refreshMapBtn"
+            type="button"
+            class="map-dock__btn map-dock__btn--refresh"
+            aria-label="รีเฟรชแผนที่"
+          >
+            <i data-lucide="refresh-cw"></i>
+          </button>
+          <button
+            id="openPinListBtn"
+            type="button"
+            class="map-dock__btn map-dock__btn--list"
+            aria-label="รายการหมุดทั้งหมด"
+          >
+            <i data-lucide="list"></i>
+          </button>
+          <button
+            id="openPinModalBtn"
+            type="button"
+            class="map-dock__btn map-dock__btn--create"
+            aria-label="เพิ่มหมุดชุมชน"
+          >
+            <i data-lucide="map-pin-plus"></i>
+          </button>
+          <button
+            id="openSearchBtn"
+            type="button"
+            class="map-dock__btn map-dock__btn--search"
+            aria-label="ค้นหา"
+          >
+            <i data-lucide="search"></i>
+          </button>
+        </nav>
+
+        <aside
+          id="pinDetailDrawer"
+          class="pin-drawer"
+          hidden
+          aria-hidden="true"
+        >
+          <button
+            type="button"
+            class="pin-drawer__backdrop"
+            data-close-drawer
+            aria-label="ปิดรายละเอียด"
+          ></button>
+          <div
+            class="pin-drawer__panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pinDrawerTitle"
+          >
+            <header class="pin-drawer__header">
+              <h2 id="pinDrawerTitle" class="pin-drawer__title"></h2>
+              <button
+                id="closePinDrawerBtn"
+                type="button"
+                class="icon-btn"
+                aria-label="ปิด"
+              >
+                <i data-lucide="x"></i>
+              </button>
+            </header>
+            <div class="pin-drawer__body">
+              <dl class="pin-drawer__meta">
+                <div class="pin-drawer__row">
+                  <dt>เขต</dt>
+                  <dd id="pinDrawerDistrict"></dd>
+                </div>
+                <div class="pin-drawer__row" id="pinDrawerTypeRow" hidden>
+                  <dt>ประเภท</dt>
+                  <dd id="pinDrawerType"></dd>
+                </div>
+                <div class="pin-drawer__row">
+                  <dt>ที่อยู่</dt>
+                  <dd id="pinDrawerAddress"></dd>
+                </div>
+                <div class="pin-drawer__row">
+                  <dt>รายละเอียด</dt>
+                  <dd id="pinDrawerNote"></dd>
+                </div>
+              </dl>
+              <a
+                id="pinDrawerNavLink"
+                class="pin-drawer__nav"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <i data-lucide="navigation"></i>
+                <span>นำทาง</span>
+              </a>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <div id="pinModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <div
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pinModalTitle"
+      >
+        <header class="modal-header">
+          <h2 id="pinModalTitle">เพิ่มหมุดชุมชน</h2>
+          <button
+            id="closePinModalBtn"
+            type="button"
+            class="icon-btn"
+            aria-label="ปิด"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </header>
+        <form id="pinForm">
+          <label for="communityName">ชื่อชุมชน</label>
+          <input id="communityName" name="communityName" required />
+
+          <label for="districtName">เขต</label>
+          <div class="district-autocomplete">
+            <input
+              id="districtName"
+              name="districtName"
+              type="text"
+              autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="districtSuggestions"
+              aria-autocomplete="list"
+              required
+            />
+            <ul
+              id="districtSuggestions"
+              class="district-autocomplete__list"
+              role="listbox"
+              hidden
+            ></ul>
+          </div>
+
+          <label for="address">ที่อยู่</label>
+          <textarea id="address" name="address" rows="2"></textarea>
+
+          <label for="communityType">ประเภทชุมชน</label>
+          <select id="communityType" name="communityType">
+            <option value="">ไม่ระบุ</option>
+            <option value="ชุมชนเมือง">ชุมชนเมือง</option>
+            <option value="ชุมชนแออัด">ชุมชนแออัด</option>
+            <option value="ชุมชนชานเมือง">ชุมชนชานเมือง</option>
+            <option value="ชุมชนอาคารสูง">ชุมชนอาคารสูง</option>
+            <option value="ชุมชนหมู่บ้านจัดสรร">ชุมชนหมู่บ้านจัดสรร</option>
+          </select>
+
+          <label for="latitude">Latitude</label>
+          <input id="latitude" name="latitude" type="number" step="any" required />
+
+          <label for="longitude">Longitude</label>
+          <input id="longitude" name="longitude" type="number" step="any" required />
+
+          <label for="note">รายละเอียดเพิ่มเติม</label>
+          <textarea id="note" name="note" rows="2"></textarea>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" data-close-modal>ยกเลิก</button>
+            <button id="pinSubmitBtn" type="submit" class="btn-primary">เพิ่มหมุด</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="confirmModal" class="modal confirm-modal" hidden>
+      <div class="modal-backdrop" data-close-confirm></div>
+      <div
+        class="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirmTitle"
+        aria-describedby="confirmMessage"
+      >
+        <h2 id="confirmTitle" class="confirm-dialog__title">ยืนยัน</h2>
+        <p id="confirmMessage" class="confirm-dialog__message"></p>
+        <div class="modal-actions">
+          <button id="confirmCancelBtn" type="button" class="btn-secondary">ยกเลิก</button>
+          <button id="confirmOkBtn" type="button" class="btn-danger">ยืนยัน</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pinListSheet" class="sheet" hidden>
+      <div class="sheet-backdrop" data-close-sheet></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pinListTitle"
+      >
+        <header class="sheet-header">
+          <h2 id="pinListTitle">รายการหมุดทั้งหมด</h2>
+          <div class="sheet-header__actions">
+            <button
+              id="sheetAddPinBtn"
+              type="button"
+              class="sheet-action-btn sheet-action-btn--create"
+              aria-label="เพิ่มหมุด"
+            >
+              <i data-lucide="plus"></i>
+              <span>เพิ่ม</span>
+            </button>
+            <button
+              id="closePinListBtn"
+              type="button"
+              class="icon-btn"
+              aria-label="ปิดรายการ"
+            >
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </header>
+        <div class="pin-table-wrap">
+          <table class="pin-table">
+            <thead>
+              <tr>
+                <th scope="col">ชื่อชุมชน</th>
+                <th scope="col">เขต</th>
+                <th scope="col">ประเภท</th>
+                <th scope="col">ที่อยู่</th>
+                <th scope="col">Lat</th>
+                <th scope="col">Lng</th>
+                <th scope="col">หมายเหตุ</th>
+                <th scope="col" class="pin-table__actions-col">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="pinTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/lucide@0.487.0/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
