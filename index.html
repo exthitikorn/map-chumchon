@@ -322,6 +322,37 @@
           <label for="note">รายละเอียดเพิ่มเติม</label>
           <textarea id="note" name="note" rows="2"></textarea>
 
+          <label for="pinImageFile">รูปประกอบ</label>
+          <div class="pin-image-field">
+            <figure
+              id="pinImagePreview"
+              class="pin-image-field__preview"
+              hidden
+            >
+              <img id="pinImagePreviewImg" alt="" />
+              <button
+                id="removePinImageBtn"
+                type="button"
+                class="pin-image-field__remove"
+              >
+                ลบรูป
+              </button>
+            </figure>
+            <input
+              id="pinImageFile"
+              name="pinImageFile"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+            />
+            <p class="pin-image-field__hint">หรือใส่ URL / path รูป</p>
+            <input
+              id="pinImageUrl"
+              name="pinImageUrl"
+              type="text"
+              placeholder="images/example.png หรือ https://..."
+            />
+          </div>
+
           <div class="modal-actions">
             <button type="button" class="btn-secondary" data-close-modal>ยกเลิก</button>
             <button id="pinSubmitBtn" type="submit" class="btn-primary">เพิ่มหมุด</button>

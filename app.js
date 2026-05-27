@@ -74,6 +74,11 @@ const latitudeInput = document.getElementById("latitude");
 const longitudeInput = document.getElementById("longitude");
 const noteInput = document.getElementById("note");
 const communityTypeInput = document.getElementById("communityType");
+const pinImageFileInput = document.getElementById("pinImageFile");
+const pinImageUrlInput = document.getElementById("pinImageUrl");
+const pinImagePreview = document.getElementById("pinImagePreview");
+const pinImagePreviewImg = document.getElementById("pinImagePreviewImg");
+const removePinImageBtn = document.getElementById("removePinImageBtn");
 const pinDetailDrawer = document.getElementById("pinDetailDrawer");
 const pinDrawerTitle = document.getElementById("pinDrawerTitle");
 const pinDrawerDistrict = document.getElementById("pinDrawerDistrict");
@@ -118,6 +123,8 @@ let districtPinCounts = new Map();
 let allPins = [];
 let searchQuery = "";
 let editingPinId = null;
+let editingPinImage = null;
+let pinImageRemoved = false;
 let confirmResolver = null;
 
 function isPinDrawerOpen() {
@@ -1345,9 +1352,85 @@ async function loadData() {
   scheduleMapResize();
 }
 
+function resetPinImageField() {
+  pinImageRemoved = false;
+  editingPinImage = null;
+  pinImageFileInput.value = "";
+  pinImageUrlInput.value = "";
+  pinImagePreview.hidden = true;
+  pinImagePreviewImg.removeAttribute("src");
+  pinImagePreviewImg.alt = "";
+}
+
+function showPinImagePreview(src, alt = "") {
+  if (!src) {
+    pinImagePreview.hidden = true;
+    pinImagePreviewImg.removeAttribute("src");
+    pinImagePreviewImg.alt = "";
+    return;
+  }
+
+  pinImagePreviewImg.src = src;
+  pinImagePreviewImg.alt = alt;
+  pinImagePreview.hidden = false;
+}
+
+function removePinImageFromForm() {
+  pinImageRemoved = true;
+  pinImageFileInput.value = "";
+  pinImageUrlInput.value = "";
+  showPinImagePreview("");
+}
+
+async function uploadPinImage(file, pinId) {
+  const formData = new FormData();
+  formData.append("image", file);
+  if (pinId) {
+    formData.append("pinId", pinId);
+  }
+
+  const response = await fetch("./api/upload-image.php", {
+    method: "POST",
+    body: formData
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Upload failed with status ${response.status}`);
+  }
+  if (!data.path) {
+    throw new Error("Upload response missing image path.");
+  }
+  return data.path;
+}
+
+async function resolvePinImageForSave(pinId) {
+  const file = pinImageFileInput.files?.[0];
+  const imageUrl = pinImageUrlInput.value.trim();
+
+  if (file) {
+    return uploadPinImage(file, pinId);
+  }
+
+  if (imageUrl) {
+    return imageUrl;
+  }
+
+  if (pinImageRemoved) {
+    return null;
+  }
+
+  if (editingPinImage) {
+    return editingPinImage;
+  }
+
+  return null;
+}
+
 function openPinModalForCreate() {
   editingPinId = null;
   pinForm.reset();
+  resetPinImageField();
   pinModalTitle.textContent = "เพิ่มหมุดชุมชน";
   pinSubmitBtn.textContent = "เพิ่มหมุด";
   if (getFilterDistrict() !== "all") {
@@ -1359,6 +1442,8 @@ function openPinModalForCreate() {
 
 function openPinModalForEdit(pin) {
   editingPinId = pin.id;
+  editingPinImage = pin.image || null;
+  pinImageRemoved = false;
   communityNameInput.value = pin.name;
   districtNameInput.value = pin.district;
   addressInput.value = pin.address || "";
@@ -1366,6 +1451,9 @@ function openPinModalForEdit(pin) {
   longitudeInput.value = pin.lng;
   noteInput.value = pin.note || "";
   communityTypeInput.value = getPinType(pin);
+  pinImageFileInput.value = "";
+  pinImageUrlInput.value = pin.image || "";
+  showPinImagePreview(getPinImageUrl(pin), pin.name);
   pinModalTitle.textContent = "แก้ไขหมุดชุมชน";
   pinSubmitBtn.textContent = "บันทึก";
   pinModal.hidden = false;
@@ -1376,6 +1464,7 @@ function closePinModal() {
   pinModal.hidden = true;
   editingPinId = null;
   pinForm.reset();
+  resetPinImageField();
   closeDistrictNameAutocomplete();
 }
 
@@ -1430,6 +1519,11 @@ async function savePinFromForm(event) {
   }
 
   try {
+    const image = await resolvePinImageForSave(pin.id);
+    if (image) {
+      pin.image = image;
+    }
+
     await upsertPin(pin);
     closePinModal();
     refreshMapData();
@@ -1554,6 +1648,41 @@ document.addEventListener("keydown", (event) => {
   }
 });
 pinForm.addEventListener("submit", savePinFromForm);
+pinImageFileInput.addEventListener("change", () => {
+  const file = pinImageFileInput.files?.[0];
+  if (!file) {
+    if (pinImageUrlInput.value.trim()) {
+      showPinImagePreview(getPinImageUrl({ image: pinImageUrlInput.value.trim() }));
+    } else if (editingPinImage && !pinImageRemoved) {
+      showPinImagePreview(getPinImageUrl({ image: editingPinImage }));
+    } else {
+      showPinImagePreview("");
+    }
+    return;
+  }
+
+  pinImageRemoved = false;
+  pinImageUrlInput.value = "";
+  const previewUrl = URL.createObjectURL(file);
+  showPinImagePreview(previewUrl, file.name);
+  pinImagePreviewImg.onload = () => {
+    URL.revokeObjectURL(previewUrl);
+  };
+});
+pinImageUrlInput.addEventListener("input", () => {
+  const imageUrl = pinImageUrlInput.value.trim();
+  if (imageUrl) {
+    pinImageRemoved = false;
+    pinImageFileInput.value = "";
+    showPinImagePreview(getPinImageUrl({ image: imageUrl }));
+    return;
+  }
+
+  pinImageRemoved = true;
+  pinImageFileInput.value = "";
+  showPinImagePreview("");
+});
+removePinImageBtn.addEventListener("click", removePinImageFromForm);
 
 typeFilterSelect?.addEventListener("change", refreshMapData);
 

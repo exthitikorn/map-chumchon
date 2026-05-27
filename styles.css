@@ -690,6 +690,52 @@ select {
   height: 18px;
 }
 
+.pin-image-field {
+  display: grid;
+  gap: 8px;
+}
+
+.pin-image-field__preview {
+  margin: 0;
+}
+
+.pin-image-field__preview[hidden] {
+  display: none;
+}
+
+.pin-image-field__preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  object-fit: contain;
+}
+
+.pin-image-field__remove {
+  width: auto;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pin-image-field__remove:hover {
+  background: #ffe4e6;
+}
+
+.pin-image-field__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
 .confirm-modal {
   z-index: 2300;
 }
