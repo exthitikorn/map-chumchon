@@ -5,9 +5,6 @@ const COMMUNITY_FOCUS_ZOOM = 17;
 const ZONE_DETAIL_MIN_ZOOM = 13;
 /** รวมทั้งกรุงเทพเป็น 1 ชิ้นเมื่อ zoom <= ค่านี้ */
 const ZONE_SINGLE_MAX_ZOOM = 9;
-const STORAGE_KEY = "customCommunityPins";
-const OVERRIDES_KEY = "communityPinOverrides";
-const DELETED_IDS_KEY = "deletedCommunityPinIds";
 
 const ALL_DISTRICTS_LABEL = "ทุกเขต";
 const COMMUNITY_TYPE_PREFIXES = [
@@ -116,7 +113,6 @@ let districtCountLayer = L.layerGroup().addTo(map);
 const markerById = new Map();
 const markerIconByType = new Map();
 let districtPinCounts = new Map();
-let staticPinsCache = [];
 let allPins = [];
 let searchQuery = "";
 let editingPinId = null;
@@ -251,64 +247,8 @@ function geoJsonStyle(feature) {
   };
 }
 
-function readCustomPins() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (error) {
-    console.error("Cannot parse custom pins", error);
-    return [];
-  }
-}
-
-function saveCustomPins(customPins) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(customPins));
-}
-
-function readOverrides() {
-  try {
-    const raw = localStorage.getItem(OVERRIDES_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (error) {
-    console.error("Cannot parse pin overrides", error);
-    return {};
-  }
-}
-
-function saveOverrides(overrides) {
-  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
-}
-
-function readDeletedIds() {
-  try {
-    const raw = localStorage.getItem(DELETED_IDS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (error) {
-    console.error("Cannot parse deleted pin ids", error);
-    return [];
-  }
-}
-
-function saveDeletedIds(ids) {
-  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(ids));
-}
-
-function isCustomPin(id) {
-  return id.startsWith("custom-");
-}
-
-function rebuildAllPins() {
-  const deleted = new Set(readDeletedIds());
-  const overrides = readOverrides();
-
-  allPins = [
-    ...staticPinsCache
-      .filter((pin) => !deleted.has(pin.id))
-      .map((pin) => normalizePin({ ...pin, ...(overrides[pin.id] || {}) })),
-    ...readCustomPins()
-      .filter((pin) => !deleted.has(pin.id))
-      .map((pin) => normalizePin({ ...pin, ...(overrides[pin.id] || {}) }))
-  ];
+function setPins(pins) {
+  allPins = pins.map((pin) => normalizePin(pin));
   rebuildDistrictPinCounts();
 }
 
@@ -1305,21 +1245,22 @@ function getPinById(id) {
 }
 
 function upsertPin(pin) {
-  if (isCustomPin(pin.id)) {
-    const customPins = readCustomPins();
-    const index = customPins.findIndex((item) => item.id === pin.id);
-    if (index >= 0) {
-      customPins[index] = pin;
-    } else {
-      customPins.push(pin);
-    }
-    saveCustomPins(customPins);
-    return;
-  }
-
-  const overrides = readOverrides();
-  overrides[pin.id] = pin;
-  saveOverrides(overrides);
+  return fetch("./api/pins.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ pin })
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Upsert request failed with status ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      setPins(data);
+    });
 }
 
 async function deletePin(id) {
@@ -1339,40 +1280,40 @@ async function deletePin(id) {
     return;
   }
 
-  if (isCustomPin(id)) {
-    saveCustomPins(readCustomPins().filter((item) => item.id !== id));
-  } else {
-    const deletedIds = readDeletedIds();
-    if (!deletedIds.includes(id)) {
-      deletedIds.push(id);
-      saveDeletedIds(deletedIds);
+  try {
+    const response = await fetch("./api/pins.php", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id })
+    });
+    if (!response.ok) {
+      throw new Error(`Delete request failed with status ${response.status}`);
     }
-    const overrides = readOverrides();
-    delete overrides[id];
-    saveOverrides(overrides);
-  }
-
-  rebuildAllPins();
-  refreshMapData();
-  if (!pinListSheet.hidden) {
-    renderPinTable();
+    const data = await response.json();
+    setPins(data);
+    refreshMapData();
+    if (!pinListSheet.hidden) {
+      renderPinTable();
+    }
+  } catch (error) {
+    console.error("Failed to delete pin", error);
+    alert("ลบหมุดไม่สำเร็จ กรุณาลองใหม่");
   }
 }
 
 async function loadData() {
-  const [districtRes, mergeRes, pinRes] = await Promise.all([
+  const [districtRes, mergeRes] = await Promise.all([
     fetch("./data/districts.json"),
-    fetch("./data/zone-merges.json"),
-    fetch("./data/community-pins.json")
+    fetch("./data/zone-merges.json")
   ]);
 
   districtGeoJson = await districtRes.json();
   zoneMerges = await mergeRes.json();
   bangkokBounds = L.geoJSON(districtGeoJson).getBounds();
-  staticPinsCache = await pinRes.json();
-  rebuildAllPins();
+  await fetchPins();
 
-  setFilterDistrict("all");
   refreshMapData();
   showFullBangkokMap();
   scheduleMapResize();
@@ -1429,7 +1370,16 @@ function parsePinFromForm() {
   return fields;
 }
 
-function savePinFromForm(event) {
+async function fetchPins() {
+  const response = await fetch("./api/pins.php");
+  if (!response.ok) {
+    throw new Error(`Failed to load pins: ${response.status}`);
+  }
+  const data = await response.json();
+  setPins(data);
+}
+
+async function savePinFromForm(event) {
   event.preventDefault();
 
   const fields = parsePinFromForm();
@@ -1453,12 +1403,16 @@ function savePinFromForm(event) {
     delete pin.type;
   }
 
-  upsertPin(pin);
-  rebuildAllPins();
-  closePinModal();
-  refreshMapData();
-  if (!pinListSheet.hidden) {
-    renderPinTable();
+  try {
+    await upsertPin(pin);
+    closePinModal();
+    refreshMapData();
+    if (!pinListSheet.hidden) {
+      renderPinTable();
+    }
+  } catch (error) {
+    console.error("Failed to save pin", error);
+    alert("บันทึกหมุดไม่สำเร็จ กรุณาลองใหม่");
   }
 }
 
