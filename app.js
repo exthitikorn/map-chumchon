@@ -103,6 +103,9 @@ let districtGeoJson;
 let zoneMerges;
 let districtLayer;
 let currentZoneMergeLevel = null;
+/** ระดับรายละเอียดจากการคลิก (null = ตาม zoom อย่างเดียว) */
+let zoneDrillLevel = null;
+const ZONE_MERGE_LEVEL_ORDER = { single: 0, color: 1, detail: 2 };
 let districtNamesCache = null;
 let closeDistrictNameAutocomplete = () => {};
 let openDistrictNameAutocomplete = () => {};
@@ -322,6 +325,9 @@ function setFilterDistrict(value) {
 function applyFilterDistrict(selection) {
   const district = selection === ALL_DISTRICTS_LABEL ? "all" : selection;
   setFilterDistrict(district);
+  if (district === "all") {
+    resetZoneDrill();
+  }
   refreshMapData();
   fitMapToSelection();
 }
@@ -389,6 +395,32 @@ function getZoneMergeLevel(zoom = map.getZoom()) {
   return "detail";
 }
 
+function resetZoneDrill() {
+  zoneDrillLevel = null;
+}
+
+function getEffectiveZoneMergeLevel(zoom = map.getZoom()) {
+  const zoomLevel = getZoneMergeLevel(zoom);
+  if (!zoneDrillLevel) {
+    return zoomLevel;
+  }
+  return ZONE_MERGE_LEVEL_ORDER[zoneDrillLevel] >= ZONE_MERGE_LEVEL_ORDER[zoomLevel]
+    ? zoneDrillLevel
+    : zoomLevel;
+}
+
+function setZoneDrillLevel(level) {
+  const drillChanged = zoneDrillLevel !== level;
+  zoneDrillLevel = level;
+  const effective = getEffectiveZoneMergeLevel();
+  if (!drillChanged && effective === currentZoneMergeLevel) {
+    return;
+  }
+  currentZoneMergeLevel = effective;
+  renderDistricts();
+  renderDistrictCounts();
+}
+
 function getMergedFeatureDistricts(feature) {
   const districts = feature.properties.districts;
   if (Array.isArray(districts) && districts.length) {
@@ -420,7 +452,7 @@ function getDistrictDisplayFeatures() {
   if (!zoneMerges) {
     return districtGeoJson.features;
   }
-  const level = getZoneMergeLevel();
+  const level = getEffectiveZoneMergeLevel();
   if (level === "single") {
     return zoneMerges.single.features;
   }
@@ -452,10 +484,12 @@ function getDistrictLayerTooltip(feature) {
 function handleDistrictLayerClick(feature, layer) {
   const mergeLevel = feature.properties.mergeLevel;
   if (mergeLevel === "all") {
+    setZoneDrillLevel("color");
     map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: ZONE_DETAIL_MIN_ZOOM - 1 });
     return;
   }
   if (mergeLevel === "color") {
+    setZoneDrillLevel("detail");
     map.fitBounds(layer.getBounds(), { padding: [48, 48], maxZoom: ZONE_DETAIL_MIN_ZOOM });
     return;
   }
@@ -466,7 +500,7 @@ function onMapZoomEnd() {
   if (!isDistrictOverviewMode() || !zoneMerges) {
     return;
   }
-  const level = getZoneMergeLevel();
+  const level = getEffectiveZoneMergeLevel();
   if (level === currentZoneMergeLevel) {
     return;
   }
@@ -720,7 +754,8 @@ function renderDistricts() {
 
   const overview = isDistrictOverviewMode();
   const filteredFeatures = getDistrictDisplayFeatures();
-  currentZoneMergeLevel = overview && zoneMerges ? getZoneMergeLevel() : "detail";
+  currentZoneMergeLevel =
+    overview && zoneMerges ? getEffectiveZoneMergeLevel() : "detail";
 
   districtLayer = L.geoJSON(
     { type: "FeatureCollection", features: filteredFeatures },
@@ -1110,6 +1145,7 @@ function refreshMapData() {
 }
 
 function resetMapView() {
+  resetZoneDrill();
   setFilterDistrict("all");
   if (typeFilterSelect) {
     typeFilterSelect.value = "all";
