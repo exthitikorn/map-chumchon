@@ -827,11 +827,21 @@ select {
   line-height: 1.4;
 }
 
+.image-lightbox__counter {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
 .image-lightbox__actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.image-lightbox__nav {
+  color: #1f2937;
 }
 
 .image-lightbox__download {

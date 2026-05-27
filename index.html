@@ -353,15 +353,16 @@
               id="pinImageFile"
               name="pinImageFile"
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp,image/gif"
             />
-            <p class="pin-image-field__hint">หรือใส่ URL / path รูป</p>
-            <input
+            <p class="pin-image-field__hint">หรือใส่ URL / path รูป (1 บรรทัดต่อ 1 รูป)</p>
+            <textarea
               id="pinImageUrl"
               name="pinImageUrl"
-              type="text"
+              rows="3"
               placeholder="images/example.png หรือ https://..."
-            />
+            ></textarea>
           </div>
 
           <div class="modal-actions">
@@ -392,7 +393,24 @@
       >
         <header class="image-lightbox__header">
           <h2 id="imageLightboxTitle" class="image-lightbox__title"></h2>
+          <p id="imageLightboxCounter" class="image-lightbox__counter" hidden></p>
           <div class="image-lightbox__actions">
+            <button
+              id="imageLightboxPrevBtn"
+              type="button"
+              class="icon-btn image-lightbox__nav"
+              aria-label="รูปก่อนหน้า"
+            >
+              <i data-lucide="chevron-left"></i>
+            </button>
+            <button
+              id="imageLightboxNextBtn"
+              type="button"
+              class="icon-btn image-lightbox__nav"
+              aria-label="รูปถัดไป"
+            >
+              <i data-lucide="chevron-right"></i>
+            </button>
             <button
               id="imageLightboxDownloadBtn"
               type="button"

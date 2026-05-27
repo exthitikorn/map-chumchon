@@ -93,7 +93,10 @@ const pinDrawerNavLink = document.getElementById("pinDrawerNavLink");
 const closePinDrawerBtn = document.getElementById("closePinDrawerBtn");
 const imageLightbox = document.getElementById("imageLightbox");
 const imageLightboxTitle = document.getElementById("imageLightboxTitle");
+const imageLightboxCounter = document.getElementById("imageLightboxCounter");
 const imageLightboxImg = document.getElementById("imageLightboxImg");
+const imageLightboxPrevBtn = document.getElementById("imageLightboxPrevBtn");
+const imageLightboxNextBtn = document.getElementById("imageLightboxNextBtn");
 const imageLightboxDownloadBtn = document.getElementById("imageLightboxDownloadBtn");
 const closeImageLightboxBtn = document.getElementById("closeImageLightboxBtn");
 const communityList = document.getElementById("communityList");
@@ -132,6 +135,8 @@ let editingPinId = null;
 let editingPinImage = null;
 let pinImageRemoved = false;
 let activeDrawerPin = null;
+let activeLightboxImages = [];
+let activeLightboxIndex = 0;
 let activeLightboxImageUrl = "";
 let activeLightboxDownloadName = "";
 let confirmResolver = null;
@@ -195,18 +200,33 @@ function normalizePin(pin) {
   return pin;
 }
 
-function getPinImageUrl(pin) {
-  if (!pin?.image) {
+function normalizeImagePath(image) {
+  const value = String(image || "").trim();
+  if (!value) {
     return "";
   }
-  const image = String(pin.image).trim();
-  if (!image) {
-    return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("/") || value.startsWith("./")) {
+    return value;
   }
-  if (/^https?:\/\//i.test(image) || image.startsWith("/") || image.startsWith("./")) {
-    return image;
+  return `./${value.replace(/^\.\//, "")}`;
+}
+
+function getPinImageUrls(pin) {
+  if (Array.isArray(pin?.images)) {
+    return pin.images.map(normalizeImagePath).filter(Boolean);
   }
-  return `./${image.replace(/^\.\//, "")}`;
+  if (pin?.image) {
+    const one = normalizeImagePath(pin.image);
+    return one ? [one] : [];
+  }
+  return [];
+}
+
+function parseImageLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function getImageDownloadFilename(title, imageUrl) {
@@ -226,16 +246,32 @@ function isImageLightboxOpen() {
   return !imageLightbox.hidden;
 }
 
-function openImageLightbox(imageUrl, title) {
+function renderLightboxImage() {
+  const imageUrl = activeLightboxImages[activeLightboxIndex];
   if (!imageUrl) {
     return;
   }
 
   activeLightboxImageUrl = imageUrl;
-  activeLightboxDownloadName = getImageDownloadFilename(title, imageUrl);
-  imageLightboxTitle.textContent = title || "รูปประกอบ";
+  activeLightboxDownloadName = getImageDownloadFilename(imageLightboxTitle.textContent, imageUrl);
   imageLightboxImg.src = imageUrl;
+  const total = activeLightboxImages.length;
+  imageLightboxCounter.hidden = total <= 1;
+  imageLightboxCounter.textContent = `${activeLightboxIndex + 1} / ${total}`;
+  imageLightboxPrevBtn.hidden = total <= 1;
+  imageLightboxNextBtn.hidden = total <= 1;
+}
+
+function openImageLightbox(imageUrls, title, startIndex = 0) {
+  if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+    return;
+  }
+
+  activeLightboxImages = imageUrls;
+  activeLightboxIndex = Math.max(0, Math.min(startIndex, imageUrls.length - 1));
+  imageLightboxTitle.textContent = title || "รูปประกอบ";
   imageLightboxImg.alt = title || "รูปประกอบ";
+  renderLightboxImage();
   imageLightbox.hidden = false;
   imageLightbox.setAttribute("aria-hidden", "false");
   initLucideIcons(imageLightbox);
@@ -250,8 +286,28 @@ function closeImageLightbox() {
   imageLightbox.hidden = true;
   imageLightbox.setAttribute("aria-hidden", "true");
   imageLightboxImg.removeAttribute("src");
+  imageLightboxCounter.textContent = "";
+  activeLightboxImages = [];
+  activeLightboxIndex = 0;
   activeLightboxImageUrl = "";
   activeLightboxDownloadName = "";
+}
+
+function showPrevLightboxImage() {
+  if (activeLightboxImages.length <= 1) {
+    return;
+  }
+  activeLightboxIndex =
+    (activeLightboxIndex - 1 + activeLightboxImages.length) % activeLightboxImages.length;
+  renderLightboxImage();
+}
+
+function showNextLightboxImage() {
+  if (activeLightboxImages.length <= 1) {
+    return;
+  }
+  activeLightboxIndex = (activeLightboxIndex + 1) % activeLightboxImages.length;
+  renderLightboxImage();
 }
 
 async function downloadActiveLightboxImage() {
@@ -283,9 +339,9 @@ async function downloadActiveLightboxImage() {
 function fillPinDrawer(pin) {
   activeDrawerPin = pin;
   pinDrawerTitle.textContent = pin.name;
-  const imageUrl = getPinImageUrl(pin);
-  if (imageUrl) {
-    pinDrawerImage.src = imageUrl;
+  const imageUrls = getPinImageUrls(pin);
+  if (imageUrls.length) {
+    pinDrawerImage.src = imageUrls[0];
     pinDrawerImage.alt = pin.name;
     openPinImageBtn.setAttribute("aria-label", `ดูรูปขนาดใหญ่: ${pin.name}`);
     pinDrawerFigure.hidden = false;
@@ -1439,7 +1495,7 @@ async function loadData() {
 
 function resetPinImageField() {
   pinImageRemoved = false;
-  editingPinImage = null;
+  editingPinImage = [];
   pinImageFileInput.value = "";
   pinImageUrlInput.value = "";
   pinImagePreview.hidden = true;
@@ -1490,26 +1546,27 @@ async function uploadPinImage(file, pinId) {
 }
 
 async function resolvePinImageForSave(pinId) {
-  const file = pinImageFileInput.files?.[0];
-  const imageUrl = pinImageUrlInput.value.trim();
+  const files = [...(pinImageFileInput.files || [])];
+  const imageUrls = parseImageLines(pinImageUrlInput.value);
 
-  if (file) {
-    return uploadPinImage(file, pinId);
+  if (files.length) {
+    const uploaded = await Promise.all(files.map((file) => uploadPinImage(file, pinId)));
+    return [...uploaded, ...imageUrls];
   }
 
-  if (imageUrl) {
-    return imageUrl;
+  if (imageUrls.length) {
+    return imageUrls;
   }
 
   if (pinImageRemoved) {
     return null;
   }
 
-  if (editingPinImage) {
+  if (editingPinImage.length) {
     return editingPinImage;
   }
 
-  return null;
+  return [];
 }
 
 function openPinModalForCreate() {
@@ -1527,7 +1584,9 @@ function openPinModalForCreate() {
 
 function openPinModalForEdit(pin) {
   editingPinId = pin.id;
-  editingPinImage = pin.image || null;
+  editingPinImage = Array.isArray(pin.images)
+    ? pin.images.map((image) => String(image).trim()).filter(Boolean)
+    : (pin.image ? [String(pin.image).trim()] : []);
   pinImageRemoved = false;
   communityNameInput.value = pin.name;
   districtNameInput.value = pin.district;
@@ -1537,8 +1596,8 @@ function openPinModalForEdit(pin) {
   noteInput.value = pin.note || "";
   communityTypeInput.value = getPinType(pin);
   pinImageFileInput.value = "";
-  pinImageUrlInput.value = pin.image || "";
-  showPinImagePreview(getPinImageUrl(pin), pin.name);
+  pinImageUrlInput.value = editingPinImage.join("\n");
+  showPinImagePreview(normalizeImagePath(editingPinImage[0] || ""), pin.name);
   pinModalTitle.textContent = "แก้ไขหมุดชุมชน";
   pinSubmitBtn.textContent = "บันทึก";
   pinModal.hidden = false;
@@ -1604,9 +1663,12 @@ async function savePinFromForm(event) {
   }
 
   try {
-    const image = await resolvePinImageForSave(pin.id);
-    if (image) {
-      pin.image = image;
+    const images = await resolvePinImageForSave(pin.id);
+    if (images.length === 1) {
+      pin.image = images[0];
+    } else if (images.length > 1) {
+      pin.images = images;
+      pin.image = images[0];
     }
 
     await upsertPin(pin);
@@ -1705,12 +1767,14 @@ openPinImageBtn.addEventListener("click", () => {
   if (!activeDrawerPin) {
     return;
   }
-  const imageUrl = getPinImageUrl(activeDrawerPin);
-  if (imageUrl) {
-    openImageLightbox(imageUrl, activeDrawerPin.name);
+  const imageUrls = getPinImageUrls(activeDrawerPin);
+  if (imageUrls.length) {
+    openImageLightbox(imageUrls, activeDrawerPin.name);
   }
 });
 imageLightboxDownloadBtn.addEventListener("click", downloadActiveLightboxImage);
+imageLightboxPrevBtn.addEventListener("click", showPrevLightboxImage);
+imageLightboxNextBtn.addEventListener("click", showNextLightboxImage);
 closeImageLightboxBtn.addEventListener("click", closeImageLightbox);
 imageLightbox.addEventListener("click", (event) => {
   if (event.target.closest("[data-close-lightbox]")) {
@@ -1724,6 +1788,16 @@ pinDetailDrawer.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (isImageLightboxOpen() && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+    event.preventDefault();
+    if (event.key === "ArrowLeft") {
+      showPrevLightboxImage();
+    } else {
+      showNextLightboxImage();
+    }
+    return;
+  }
+
   if (event.key !== "Escape") {
     return;
   }
@@ -1754,12 +1828,13 @@ document.addEventListener("keydown", (event) => {
 });
 pinForm.addEventListener("submit", savePinFromForm);
 pinImageFileInput.addEventListener("change", () => {
-  const file = pinImageFileInput.files?.[0];
-  if (!file) {
-    if (pinImageUrlInput.value.trim()) {
-      showPinImagePreview(getPinImageUrl({ image: pinImageUrlInput.value.trim() }));
-    } else if (editingPinImage && !pinImageRemoved) {
-      showPinImagePreview(getPinImageUrl({ image: editingPinImage }));
+  const files = [...(pinImageFileInput.files || [])];
+  if (!files.length) {
+    const textImages = parseImageLines(pinImageUrlInput.value);
+    if (textImages.length) {
+      showPinImagePreview(normalizeImagePath(textImages[0]));
+    } else if (editingPinImage.length && !pinImageRemoved) {
+      showPinImagePreview(normalizeImagePath(editingPinImage[0]));
     } else {
       showPinImagePreview("");
     }
@@ -1767,19 +1842,18 @@ pinImageFileInput.addEventListener("change", () => {
   }
 
   pinImageRemoved = false;
-  pinImageUrlInput.value = "";
-  const previewUrl = URL.createObjectURL(file);
-  showPinImagePreview(previewUrl, file.name);
+  const previewUrl = URL.createObjectURL(files[0]);
+  showPinImagePreview(previewUrl, files[0].name);
   pinImagePreviewImg.onload = () => {
     URL.revokeObjectURL(previewUrl);
   };
 });
 pinImageUrlInput.addEventListener("input", () => {
-  const imageUrl = pinImageUrlInput.value.trim();
-  if (imageUrl) {
+  const imageUrls = parseImageLines(pinImageUrlInput.value);
+  if (imageUrls.length) {
     pinImageRemoved = false;
     pinImageFileInput.value = "";
-    showPinImagePreview(getPinImageUrl({ image: imageUrl }));
+    showPinImagePreview(normalizeImagePath(imageUrls[0]));
     return;
   }
 
