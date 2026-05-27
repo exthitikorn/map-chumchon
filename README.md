@@ -1,76 +1,125 @@
-# Bangkok Community Map (Demo)
+# แผนที่ชุมชนกรุงเทพฯ
 
-เว็บตัวอย่างแผนที่กรุงเทพมหานครด้วย `Leaflet + OpenStreetMap`
+เว็บแอปตัวอย่างสำหรับดูตำแหน่งชุมชนในกรุงเทพมหานครบนแผนที่  
+ใช้ [Leaflet](https://leafletjs.com/) + [OpenStreetMap](https://www.openstreetmap.org/) ไม่ต้องติดตั้ง backend
 
-## ความสามารถ
+---
 
-- แสดง polygon แบ่งเขตจากไฟล์ `JSON`
-- กำหนดสีเขตได้เอง (`fillColor`, `strokeColor`)
-- แสดงหมุดชุมชนจากไฟล์ `JSON`
-- เพิ่มหมุดใหม่เองผ่านฟอร์ม (เก็บใน `localStorage`)
-- filter ดูเฉพาะเขต และประเภทชุมชน (ชุมชนเมือง, แออัด, ชานเมือง ฯลฯ)
-- หมุดสีต่างกันตามประเภทชุมชน (มี legend มุมล่างซ้าย คลิกเพื่อกรองได้)
-- คลิกหมุดเพื่อดูรายละเอียด + ปุ่มนำทาง Google Maps
-- แก้ไข/ลบหมุด (เก็บการเปลี่ยนแปลงใน `localStorage`)
+## เริ่มต้นใช้งาน
 
-## โครงสร้างไฟล์
+เปิดไฟล์ `index.html` ตรงๆ ในเบราว์เซอร์ **ไม่ได้** — ต้องรันผ่านเว็บเซิร์ฟเวอร์เพราะแอปโหลดข้อมูลจากไฟล์ JSON
 
-- `index.html` หน้าเว็บหลัก
-- `styles.css` สไตล์
-- `app.js` logic แผนที่/filter/หมุด
-- `data/districts.json` polygon เขต + สี
-- `data/community-pins.json` หมุดตั้งต้น
+1. เปิดเทอร์มินัลที่โฟลเดอร์โปรเจกต์
+2. รันคำสั่งใดคำสั่งหนึ่งด้านล่าง
+3. เปิดเบราว์เซอร์ไปที่ `http://localhost:5500`
 
-## แหล่งที่มาข้อมูลชุมชน
-
-หมุดชุมชนใน `data/community-pins.json` แปลงมาจากชุดข้อมูลเปิดของกรุงเทพมหานคร (Open Data Bangkok)
-
-| รายการ | รายละเอียด |
-| --- | --- |
-| ชุดข้อมูล | [ที่ตั้งชุมชนในพื้นที่เขตกรุงเทพมหานคร](https://data.bangkok.go.th/dataset/chumchon) |
-| ผู้เผยแพร่ | กรุงเทพมหานคร — [Open Data Bangkok](https://data.bangkok.go.th) |
-| ไฟล์ต้นทาง | `community.csv` — [ดาวน์โหลดโดยตรง](https://data.bangkok.go.th/dataset/4d05e37a-2f09-48c5-9905-d5c65176a4a6/resource/d5c69e37-5c8f-48ef-9275-97c125939352/download/community.csv) |
-| รูปแบบในโปรเจกต์ | แปลงเป็น JSON (`id`, `name`, `district`, `type`, `address`, `lat`, `lng`, `note`) ด้วย `scripts/import-community-csv.js` |
-
-หมุดที่ผู้ใช้เพิ่ม/แก้ไขผ่านหน้าเว็บเก็บใน `localStorage` ของเบราว์เซอร์ ไม่ได้รวมอยู่ในชุดข้อมูล Open Data ข้างต้น
-
-## วิธีใช้งาน
-
-เนื่องจากมี `fetch()` ไฟล์ JSON ให้เปิดผ่าน local server:
+**Python (แนะนำ — มักมีอยู่แล้วบนเครื่อง)**
 
 ```bash
-cd d:\Code\map
 python -m http.server 5500
 ```
 
-จากนั้นเปิด:
+**Node.js (ถ้ามี `npx`)**
 
-- `http://localhost:5500`
+```bash
+npx --yes serve -p 5500
+```
 
-## ดึง polygon จาก Bangkok Health Map
+---
 
-1. ดาวน์โหลดหน้าเว็บ Bangkok Health Map เป็นไฟล์ HTML (เช่น `page28.html`)
-2. รันสคริปต์แปลงเป็น GeoJSON:
+## ใช้งานบนเว็บ
+
+แผงควบคุมด้านข้างแผนที่ใช้กรองและจัดการหมุดได้ดังนี้
+
+| สิ่งที่ทำได้ | วิธีใช้ |
+| --- | --- |
+| กรองตามเขต | พิมพ์หรือเลือกชื่อเขตในช่อง **Filter เขต** |
+| กรองตามประเภทชุมชน | เลือกจากรายการ เช่น ชุมชนเมือง, แออัด, ชานเมือง |
+| กรองจาก legend | คลิกสีหมุดมุมล่างซ้ายของแผนที่ |
+| ดูรายละเอียด | คลิกหมุดบนแผนที่ หรือเลือกจากรายการ **ชุมชนในระบบ** |
+| นำทาง | ปุ่ม Google Maps ใน popup ของหมุด |
+| เพิ่มหมุด | กรอกฟอร์ม **เพิ่มหมุดชุมชน** (พิกัด lat/lng) |
+| แก้ไข / ลบ | เปิดหมุดแล้วใช้ปุ่มในหน้าต่างรายละเอียด |
+
+**หมายเหตุเกี่ยวกับข้อมูล**
+
+- หมุดจากไฟล์ `data/community-pins.json` เป็นข้อมูลตั้งต้นจาก Open Data กทม.
+- หมุดที่คุณเพิ่ม แก้ หรือลบ จะเก็บใน **localStorage** ของเบราว์เซอร์เครื่องนั้นเท่านั้น ไม่ถูกบันทึกลงไฟล์ในโปรเจกต์
+- ล้าง cache หรือเปลี่ยนเบราว์เซอร์ การแก้ไขใน localStorage อาจหายไป
+
+---
+
+## โครงสร้างโปรเจกต์
+
+```
+map/
+├── index.html              # หน้าเว็บหลัก
+├── styles.css              # สไตล์ UI
+├── app.js                  # แผนที่, filter, หมุด, localStorage
+├── data/
+│   ├── districts.json      # polygon เขต 50 เขต + สี
+│   └── community-pins.json # หมุดชุมชนตั้งต้น
+└── scripts/
+    ├── extract-districts.js      # แปลง HTML → districts.json
+    └── import-community-csv.js   # แปลง CSV กทม. → community-pins.json
+```
+
+---
+
+## ที่มาข้อมูล
+
+### หมุดชุมชน
+
+แปลงจากชุดข้อมูลเปิดของกรุงเทพมหานคร
+
+| รายการ | ลิงก์ |
+| --- | --- |
+| ชุดข้อมูล | [ที่ตั้งชุมชนในพื้นที่เขตกรุงเทพมหานคร](https://data.bangkok.go.th/dataset/chumchon) |
+| ผู้เผยแพร่ | [Open Data Bangkok](https://data.bangkok.go.th) |
+| ไฟล์ CSV ต้นทาง | [community.csv](https://data.bangkok.go.th/dataset/4d05e37a-2f09-48c5-9905-d5c65176a4a6/resource/d5c69e37-5c8f-48ef-9275-97c125939352/download/community.csv) |
+
+ในโปรเจกต์เก็บเป็น JSON ฟิลด์หลัก: `id`, `name`, `district`, `type`, `address`, `lat`, `lng`, `note`
+
+### เขต (polygon)
+
+มาจากการแปลงหน้า Bangkok Health Map (สคริปต์ `extract-districts.js`) — ครบ 50 เขต
+
+---
+
+## อัปเดตข้อมูล (สำหรับนักพัฒนา)
+
+ต้องมี **Node.js** ติดตั้งแล้ว
+
+### ดึงหมุดชุมชนใหม่จาก Open Data
+
+สคริปต์จะดาวน์โหลด `community.csv` อัตโนมัติ (หรือใช้ `data/community-source.csv` ถ้ามีไฟล์นั้นอยู่แล้ว) แล้วเขียนทับ `data/community-pins.json`
+
+```bash
+node scripts/import-community-csv.js
+```
+
+ใช้ไฟล์ CSV ที่ดาวน์โหลดเอง:
+
+```bash
+node scripts/import-community-csv.js path/to/community.csv
+```
+
+### ดึง polygon เขตใหม่
+
+1. บันทึกหน้า Bangkok Health Map เป็นไฟล์ HTML (เช่น `page28.html`) — ไฟล์นี้ไม่ต้อง commit
+2. รัน:
 
 ```bash
 node scripts/extract-districts.js path/to/downloaded-page.html
 ```
 
-ไฟล์ HTML ต้นทางไม่ต้องเก็บใน repo (ระบุ path ตอนรันสคริปต์ได้)
+ผลลัพธ์จะเขียนทับ `data/districts.json`
 
-ผลลัพธ์จะเขียนทับ `data/districts.json` (ครบ 50 เขต จาก `generateBoundary`)
+---
 
-## ดึงหมุดชุมชนจาก Open Data กทม. (มี lat/lng)
+## รูปแบบข้อมูล (อ้างอิง)
 
-ดู [แหล่งที่มาข้อมูลชุมชน](#แหล่งที่มาข้อมูลชุมชน) — สคริปต์จะดาวน์โหลด `community.csv` (หรือใช้ไฟล์ใน `data/community-source.csv` ถ้ามี) แล้วเขียนทับ `data/community-pins.json`
-
-```bash
-node scripts/import-community-csv.js
-# หรือระบุ path ไฟล์ CSV เอง
-node scripts/import-community-csv.js path/to/community.csv
-```
-
-## ตัวอย่างการเพิ่มเขตใน `data/districts.json`
+**เขต** — GeoJSON Feature ใน `data/districts.json`:
 
 ```json
 {
@@ -87,16 +136,25 @@ node scripts/import-community-csv.js path/to/community.csv
 }
 ```
 
-## ตัวอย่างการเพิ่มหมุดใน `data/community-pins.json`
+**หมุดชุมชน** — อ็อบเจ็กต์ในอาร์เรย์ `data/community-pins.json`:
 
 ```json
 {
   "id": "c004",
   "name": "ชุมชนตัวอย่าง",
   "district": "เขตตัวอย่าง",
+  "type": "ชุมชนเมือง",
   "address": "ที่อยู่ตัวอย่าง",
   "lat": 13.71,
   "lng": 100.51,
   "note": "รายละเอียดเพิ่มเติม"
 }
 ```
+
+---
+
+## เทคโนโลยีที่ใช้
+
+- [Leaflet](https://leafletjs.com/) 1.9 — แผนที่
+- [OpenStreetMap](https://www.openstreetmap.org/) — แผนที่ฐาน
+- ไม่มี build step — HTML, CSS, JavaScript ล้วนๆ
