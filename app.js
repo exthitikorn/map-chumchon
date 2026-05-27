@@ -73,6 +73,9 @@ const addressInput = document.getElementById("address");
 const latitudeInput = document.getElementById("latitude");
 const longitudeInput = document.getElementById("longitude");
 const noteInput = document.getElementById("note");
+const contactFacebookInput = document.getElementById("contactFacebook");
+const contactLineInput = document.getElementById("contactLine");
+const contactTiktokInput = document.getElementById("contactTiktok");
 const communityTypeInput = document.getElementById("communityType");
 const pinImageFileInput = document.getElementById("pinImageFile");
 const pinImageUrlInput = document.getElementById("pinImageUrl");
@@ -86,6 +89,8 @@ const pinDrawerTypeRow = document.getElementById("pinDrawerTypeRow");
 const pinDrawerType = document.getElementById("pinDrawerType");
 const pinDrawerAddress = document.getElementById("pinDrawerAddress");
 const pinDrawerNote = document.getElementById("pinDrawerNote");
+const pinDrawerContactsRow = document.getElementById("pinDrawerContactsRow");
+const pinDrawerContacts = document.getElementById("pinDrawerContacts");
 const pinDrawerFigure = document.getElementById("pinDrawerFigure");
 const pinDrawerImage = document.getElementById("pinDrawerImage");
 const openPinImageBtn = document.getElementById("openPinImageBtn");
@@ -147,6 +152,47 @@ function isPinDrawerOpen() {
 
 function getPinType(pin) {
   return pin.type || "";
+}
+
+const PIN_CONTACT_FIELDS = ["facebook", "line", "tiktok"];
+
+function getPinContacts(pin) {
+  return {
+    facebook: pin.facebook?.toString().trim() || "",
+    line: pin.line?.toString().trim() || "",
+    tiktok: pin.tiktok?.toString().trim() || ""
+  };
+}
+
+function contactValueToHref(platform, value) {
+  const raw = value.trim();
+  if (!raw) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  if (/^(www\.)?(facebook|fb)\.com\//i.test(raw) || /^facebook\.com\//i.test(raw)) {
+    return `https://${raw.replace(/^\/+/, "")}`;
+  }
+  if (/^line\.me\//i.test(raw)) {
+    return `https://${raw.replace(/^\/+/, "")}`;
+  }
+  if (/^(www\.)?tiktok\.com\//i.test(raw)) {
+    return `https://${raw.replace(/^\/+/, "")}`;
+  }
+  if (platform === "facebook") {
+    return `https://www.facebook.com/${raw.replace(/^@/, "")}`;
+  }
+  if (platform === "tiktok") {
+    const handle = raw.replace(/^@/, "");
+    return `https://www.tiktok.com/@${handle}`;
+  }
+  if (platform === "line") {
+    const id = raw.replace(/^[@~]/, "");
+    return `https://line.me/ti/p/~${id}`;
+  }
+  return null;
 }
 
 function getCommunityTypeColor(type) {
@@ -361,6 +407,30 @@ function fillPinDrawer(pin) {
   }
   pinDrawerAddress.textContent = pin.address || "-";
   pinDrawerNote.textContent = pin.note || "-";
+
+  const contacts = getPinContacts(pin);
+  const contactLabels = { facebook: "Facebook", line: "LINE", tiktok: "TikTok" };
+  const contactItems = PIN_CONTACT_FIELDS.map((key) => {
+    const value = contacts[key];
+    if (!value) {
+      return "";
+    }
+    const href = contactValueToHref(key, value);
+    const label = contactLabels[key];
+    if (href) {
+      return `<a class="pin-drawer__contact-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+    }
+    return `<span class="pin-drawer__contact-text">${escapeHtml(label)}: ${escapeHtml(value)}</span>`;
+  }).filter(Boolean);
+
+  if (contactItems.length) {
+    pinDrawerContacts.innerHTML = contactItems.join("");
+    pinDrawerContactsRow.hidden = false;
+  } else {
+    pinDrawerContacts.textContent = "";
+    pinDrawerContactsRow.hidden = true;
+  }
+
   pinDrawerNavLink.href = `https://www.google.com/maps/dir/?api=1&destination=${pin.lat},${pin.lng}`;
 }
 
@@ -628,7 +698,17 @@ function normalizeSearchText(text) {
 }
 
 function getPinSearchFields(pin) {
-  return [pin.name, pin.district, getPinType(pin), pin.address, pin.note].filter(Boolean);
+  const contacts = getPinContacts(pin);
+  return [
+    pin.name,
+    pin.district,
+    getPinType(pin),
+    pin.address,
+    pin.note,
+    contacts.facebook,
+    contacts.line,
+    contacts.tiktok
+  ].filter(Boolean);
 }
 
 function levenshteinDistance(a, b) {
@@ -1606,6 +1686,10 @@ function openPinModalForEdit(pin) {
   latitudeInput.value = pin.lat;
   longitudeInput.value = pin.lng;
   noteInput.value = pin.note || "";
+  const contacts = getPinContacts(pin);
+  contactFacebookInput.value = contacts.facebook;
+  contactLineInput.value = contacts.line;
+  contactTiktokInput.value = contacts.tiktok;
   communityTypeInput.value = getPinType(pin);
   pinImageFileInput.value = "";
   pinImageUrlInput.value = editingPinImage.join("\n");
@@ -1633,11 +1717,19 @@ function parsePinFromForm() {
     address: formData.get("address")?.toString().trim(),
     lat: Number(formData.get("latitude")),
     lng: Number(formData.get("longitude")),
-    note: formData.get("note")?.toString().trim()
+    note: formData.get("note")?.toString().trim(),
+    facebook: formData.get("contactFacebook")?.toString().trim() || "",
+    line: formData.get("contactLine")?.toString().trim() || "",
+    tiktok: formData.get("contactTiktok")?.toString().trim() || ""
   };
   if (type) {
     fields.type = type;
   }
+  PIN_CONTACT_FIELDS.forEach((key) => {
+    if (!fields[key]) {
+      delete fields[key];
+    }
+  });
   return fields;
 }
 

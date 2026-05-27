@@ -1004,6 +1004,54 @@ select {
   box-sizing: border-box;
 }
 
+.pin-form__contact {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pin-form__contact-legend {
+  padding: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.pin-form__contact .pin-form__field:first-of-type label {
+  margin-top: 8px;
+}
+
+.pin-drawer__contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pin-drawer__contact-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #2563eb;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pin-drawer__contact-link:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.pin-drawer__contact-text {
+  display: block;
+  font-size: 0.9rem;
+}
+
 .modal-header {
   display: flex;
   align-items: center;

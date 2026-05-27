@@ -250,6 +250,10 @@
                   <dt>รายละเอียด</dt>
                   <dd id="pinDrawerNote"></dd>
                 </div>
+                <div class="pin-drawer__row" id="pinDrawerContactsRow" hidden>
+                  <dt>ติดต่อ</dt>
+                  <dd id="pinDrawerContacts" class="pin-drawer__contacts"></dd>
+                </div>
               </dl>
               <a
                 id="pinDrawerNavLink"
@@ -333,6 +337,42 @@
                 <label for="address">ที่อยู่</label>
                 <textarea id="address" name="address" rows="3"></textarea>
               </div>
+
+              <fieldset class="pin-form__contact">
+                <legend class="pin-form__contact-legend">ช่องทางติดต่อ</legend>
+                <div class="pin-form__field">
+                  <label for="contactFacebook">Facebook</label>
+                  <input
+                    id="contactFacebook"
+                    name="contactFacebook"
+                    type="text"
+                    inputmode="url"
+                    autocomplete="off"
+                    placeholder="https://facebook.com/... หรือชื่อเพจ"
+                  />
+                </div>
+                <div class="pin-form__field">
+                  <label for="contactLine">LINE</label>
+                  <input
+                    id="contactLine"
+                    name="contactLine"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="https://line.me/... หรือ LINE ID"
+                  />
+                </div>
+                <div class="pin-form__field">
+                  <label for="contactTiktok">TikTok</label>
+                  <input
+                    id="contactTiktok"
+                    name="contactTiktok"
+                    type="text"
+                    inputmode="url"
+                    autocomplete="off"
+                    placeholder="https://tiktok.com/@... หรือ @username"
+                  />
+                </div>
+              </fieldset>
             </div>
 
             <div class="pin-form__col">
