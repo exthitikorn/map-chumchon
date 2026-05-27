@@ -1517,9 +1517,21 @@ function showPinImagePreview(src, alt = "") {
 }
 
 function removePinImageFromForm() {
+  const hasPendingUpload = (pinImageFileInput.files?.length || 0) > 0;
+  editingPinImage = [];
+  pinImageUrlInput.value = "";
+  if (hasPendingUpload) {
+    pinImageRemoved = false;
+    const file = pinImageFileInput.files[0];
+    const previewUrl = URL.createObjectURL(file);
+    showPinImagePreview(previewUrl, file.name);
+    pinImagePreviewImg.onload = () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+    return;
+  }
   pinImageRemoved = true;
   pinImageFileInput.value = "";
-  pinImageUrlInput.value = "";
   showPinImagePreview("");
 }
 
@@ -1664,11 +1676,18 @@ async function savePinFromForm(event) {
 
   try {
     const images = await resolvePinImageForSave(pin.id);
-    if (images.length === 1) {
+    if (images === null) {
+      delete pin.image;
+      delete pin.images;
+    } else if (images.length === 1) {
       pin.image = images[0];
+      delete pin.images;
     } else if (images.length > 1) {
       pin.images = images;
       pin.image = images[0];
+    } else {
+      delete pin.image;
+      delete pin.images;
     }
 
     await upsertPin(pin);
@@ -1854,6 +1873,17 @@ pinImageUrlInput.addEventListener("input", () => {
     pinImageRemoved = false;
     pinImageFileInput.value = "";
     showPinImagePreview(normalizeImagePath(imageUrls[0]));
+    return;
+  }
+
+  const pendingFiles = [...(pinImageFileInput.files || [])];
+  if (pendingFiles.length) {
+    pinImageRemoved = false;
+    const previewUrl = URL.createObjectURL(pendingFiles[0]);
+    showPinImagePreview(previewUrl, pendingFiles[0].name);
+    pinImagePreviewImg.onload = () => {
+      URL.revokeObjectURL(previewUrl);
+    };
     return;
   }
 
