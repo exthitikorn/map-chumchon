@@ -81,6 +81,8 @@ const pinDrawerTypeRow = document.getElementById("pinDrawerTypeRow");
 const pinDrawerType = document.getElementById("pinDrawerType");
 const pinDrawerAddress = document.getElementById("pinDrawerAddress");
 const pinDrawerNote = document.getElementById("pinDrawerNote");
+const pinDrawerFigure = document.getElementById("pinDrawerFigure");
+const pinDrawerImage = document.getElementById("pinDrawerImage");
 const pinDrawerNavLink = document.getElementById("pinDrawerNavLink");
 const closePinDrawerBtn = document.getElementById("closePinDrawerBtn");
 const communityList = document.getElementById("communityList");
@@ -177,8 +179,32 @@ function normalizePin(pin) {
   return pin;
 }
 
+function getPinImageUrl(pin) {
+  if (!pin?.image) {
+    return "";
+  }
+  const image = String(pin.image).trim();
+  if (!image) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(image) || image.startsWith("/") || image.startsWith("./")) {
+    return image;
+  }
+  return `./${image.replace(/^\.\//, "")}`;
+}
+
 function fillPinDrawer(pin) {
   pinDrawerTitle.textContent = pin.name;
+  const imageUrl = getPinImageUrl(pin);
+  if (imageUrl) {
+    pinDrawerImage.src = imageUrl;
+    pinDrawerImage.alt = pin.name;
+    pinDrawerFigure.hidden = false;
+  } else {
+    pinDrawerImage.removeAttribute("src");
+    pinDrawerImage.alt = "";
+    pinDrawerFigure.hidden = true;
+  }
   pinDrawerDistrict.textContent = pin.district;
   const type = getPinType(pin);
   if (type) {

@@ -620,6 +620,24 @@ select {
   overflow-y: auto;
 }
 
+.pin-drawer__figure {
+  margin: 0 0 16px;
+}
+
+.pin-drawer__figure[hidden] {
+  display: none;
+}
+
+.pin-drawer__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  object-fit: contain;
+}
+
 .pin-drawer__meta {
   margin: 0;
 }
