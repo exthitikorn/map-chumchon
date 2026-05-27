@@ -214,13 +214,24 @@
                 class="pin-drawer__figure"
                 hidden
               >
-                <img
-                  id="pinDrawerImage"
-                  class="pin-drawer__image"
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
+                <button
+                  id="openPinImageBtn"
+                  type="button"
+                  class="pin-drawer__image-btn"
+                  aria-label="ดูรูปขนาดใหญ่"
+                >
+                  <img
+                    id="pinDrawerImage"
+                    class="pin-drawer__image"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="pin-drawer__image-hint">
+                    <i data-lucide="maximize-2"></i>
+                    <span>ดูรูปขนาดใหญ่</span>
+                  </span>
+                </button>
               </figure>
               <dl class="pin-drawer__meta">
                 <div class="pin-drawer__row">
@@ -358,6 +369,55 @@
             <button id="pinSubmitBtn" type="submit" class="btn-primary">เพิ่มหมุด</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div
+      id="imageLightbox"
+      class="image-lightbox"
+      hidden
+      aria-hidden="true"
+    >
+      <button
+        type="button"
+        class="image-lightbox__backdrop"
+        data-close-lightbox
+        aria-label="ปิด"
+      ></button>
+      <div
+        class="image-lightbox__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="imageLightboxTitle"
+      >
+        <header class="image-lightbox__header">
+          <h2 id="imageLightboxTitle" class="image-lightbox__title"></h2>
+          <div class="image-lightbox__actions">
+            <button
+              id="imageLightboxDownloadBtn"
+              type="button"
+              class="image-lightbox__download"
+            >
+              <i data-lucide="download"></i>
+              <span>ดาวน์โหลด</span>
+            </button>
+            <button
+              id="closeImageLightboxBtn"
+              type="button"
+              class="icon-btn image-lightbox__close"
+              aria-label="ปิด"
+            >
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </header>
+        <div class="image-lightbox__body">
+          <img
+            id="imageLightboxImg"
+            class="image-lightbox__image"
+            alt=""
+          />
+        </div>
       </div>
     </div>
 

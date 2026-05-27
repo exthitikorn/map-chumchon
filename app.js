@@ -88,8 +88,14 @@ const pinDrawerAddress = document.getElementById("pinDrawerAddress");
 const pinDrawerNote = document.getElementById("pinDrawerNote");
 const pinDrawerFigure = document.getElementById("pinDrawerFigure");
 const pinDrawerImage = document.getElementById("pinDrawerImage");
+const openPinImageBtn = document.getElementById("openPinImageBtn");
 const pinDrawerNavLink = document.getElementById("pinDrawerNavLink");
 const closePinDrawerBtn = document.getElementById("closePinDrawerBtn");
+const imageLightbox = document.getElementById("imageLightbox");
+const imageLightboxTitle = document.getElementById("imageLightboxTitle");
+const imageLightboxImg = document.getElementById("imageLightboxImg");
+const imageLightboxDownloadBtn = document.getElementById("imageLightboxDownloadBtn");
+const closeImageLightboxBtn = document.getElementById("closeImageLightboxBtn");
 const communityList = document.getElementById("communityList");
 const communityListCount = document.getElementById("communityListCount");
 const communityListEmpty = document.getElementById("communityListEmpty");
@@ -125,6 +131,9 @@ let searchQuery = "";
 let editingPinId = null;
 let editingPinImage = null;
 let pinImageRemoved = false;
+let activeDrawerPin = null;
+let activeLightboxImageUrl = "";
+let activeLightboxDownloadName = "";
 let confirmResolver = null;
 
 function isPinDrawerOpen() {
@@ -200,16 +209,90 @@ function getPinImageUrl(pin) {
   return `./${image.replace(/^\.\//, "")}`;
 }
 
+function getImageDownloadFilename(title, imageUrl) {
+  const fromPath = imageUrl.split(/[/?#]/).pop() || "";
+  if (/\.(jpe?g|png|gif|webp)$/i.test(fromPath)) {
+    return fromPath;
+  }
+
+  const safeName = String(title || "image")
+    .trim()
+    .replace(/[^\w\u0E00-\u0E7F-]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${safeName || "image"}.png`;
+}
+
+function isImageLightboxOpen() {
+  return !imageLightbox.hidden;
+}
+
+function openImageLightbox(imageUrl, title) {
+  if (!imageUrl) {
+    return;
+  }
+
+  activeLightboxImageUrl = imageUrl;
+  activeLightboxDownloadName = getImageDownloadFilename(title, imageUrl);
+  imageLightboxTitle.textContent = title || "รูปประกอบ";
+  imageLightboxImg.src = imageUrl;
+  imageLightboxImg.alt = title || "รูปประกอบ";
+  imageLightbox.hidden = false;
+  imageLightbox.setAttribute("aria-hidden", "false");
+  initLucideIcons(imageLightbox);
+  closeImageLightboxBtn.focus();
+}
+
+function closeImageLightbox() {
+  if (imageLightbox.hidden) {
+    return;
+  }
+
+  imageLightbox.hidden = true;
+  imageLightbox.setAttribute("aria-hidden", "true");
+  imageLightboxImg.removeAttribute("src");
+  activeLightboxImageUrl = "";
+  activeLightboxDownloadName = "";
+}
+
+async function downloadActiveLightboxImage() {
+  if (!activeLightboxImageUrl) {
+    return;
+  }
+
+  try {
+    const response = await fetch(activeLightboxImageUrl);
+    if (!response.ok) {
+      throw new Error(`Download failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = activeLightboxDownloadName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error("Failed to download image", error);
+    window.open(activeLightboxImageUrl, "_blank", "noopener,noreferrer");
+  }
+}
+
 function fillPinDrawer(pin) {
+  activeDrawerPin = pin;
   pinDrawerTitle.textContent = pin.name;
   const imageUrl = getPinImageUrl(pin);
   if (imageUrl) {
     pinDrawerImage.src = imageUrl;
     pinDrawerImage.alt = pin.name;
+    openPinImageBtn.setAttribute("aria-label", `ดูรูปขนาดใหญ่: ${pin.name}`);
     pinDrawerFigure.hidden = false;
   } else {
     pinDrawerImage.removeAttribute("src");
     pinDrawerImage.alt = "";
+    openPinImageBtn.removeAttribute("aria-label");
     pinDrawerFigure.hidden = true;
   }
   pinDrawerDistrict.textContent = pin.district;
@@ -245,6 +328,8 @@ function closePinDrawer() {
     return;
   }
 
+  closeImageLightbox();
+  activeDrawerPin = null;
   pinDetailDrawer.classList.remove("pin-drawer--open");
 
   let closed = false;
@@ -1616,6 +1701,22 @@ confirmModal.addEventListener("click", (event) => {
   }
 });
 closePinDrawerBtn.addEventListener("click", closePinDrawer);
+openPinImageBtn.addEventListener("click", () => {
+  if (!activeDrawerPin) {
+    return;
+  }
+  const imageUrl = getPinImageUrl(activeDrawerPin);
+  if (imageUrl) {
+    openImageLightbox(imageUrl, activeDrawerPin.name);
+  }
+});
+imageLightboxDownloadBtn.addEventListener("click", downloadActiveLightboxImage);
+closeImageLightboxBtn.addEventListener("click", closeImageLightbox);
+imageLightbox.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-lightbox]")) {
+    closeImageLightbox();
+  }
+});
 pinDetailDrawer.addEventListener("click", (event) => {
   if (event.target.closest("[data-close-drawer]")) {
     closePinDrawer();
@@ -1628,6 +1729,10 @@ document.addEventListener("keydown", (event) => {
   }
   if (!confirmModal.hidden) {
     closeConfirm(false);
+    return;
+  }
+  if (isImageLightboxOpen()) {
+    closeImageLightbox();
     return;
   }
   if (isPinDrawerOpen()) {
