@@ -19,7 +19,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=3" />
   </head>
   <body>
     <div class="layout">
@@ -395,20 +395,11 @@
               <div class="pin-form__field">
                 <label for="pinImageFile">รูปประกอบ</label>
                 <div class="pin-image-field">
-                  <figure
-                    id="pinImagePreview"
-                    class="pin-image-field__preview"
+                  <div
+                    id="pinImagePreviewList"
+                    class="pin-image-field__previews"
                     hidden
-                  >
-                    <img id="pinImagePreviewImg" alt="" />
-                    <button
-                      id="removePinImageBtn"
-                      type="button"
-                      class="pin-image-field__remove"
-                    >
-                      ลบรูป
-                    </button>
-                  </figure>
+                  ></div>
                   <input
                     id="pinImageFile"
                     name="pinImageFile"
@@ -416,13 +407,6 @@
                     multiple
                     accept="image/jpeg,image/png,image/webp,image/gif"
                   />
-                  <p class="pin-image-field__hint">หรือใส่ URL / path รูป (1 บรรทัดต่อ 1 รูป)</p>
-                  <textarea
-                    id="pinImageUrl"
-                    name="pinImageUrl"
-                    rows="3"
-                    placeholder="images/example.png หรือ https://..."
-                  ></textarea>
                 </div>
               </div>
             </div>
@@ -576,6 +560,6 @@
       crossorigin=""
     ></script>
     <script src="https://unpkg.com/lucide@0.487.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>

@@ -78,10 +78,7 @@ const contactLineInput = document.getElementById("contactLine");
 const contactTiktokInput = document.getElementById("contactTiktok");
 const communityTypeInput = document.getElementById("communityType");
 const pinImageFileInput = document.getElementById("pinImageFile");
-const pinImageUrlInput = document.getElementById("pinImageUrl");
-const pinImagePreview = document.getElementById("pinImagePreview");
-const pinImagePreviewImg = document.getElementById("pinImagePreviewImg");
-const removePinImageBtn = document.getElementById("removePinImageBtn");
+const pinImagePreviewList = document.getElementById("pinImagePreviewList");
 const pinDetailDrawer = document.getElementById("pinDetailDrawer");
 const pinDrawerTitle = document.getElementById("pinDrawerTitle");
 const pinDrawerDistrict = document.getElementById("pinDrawerDistrict");
@@ -139,6 +136,8 @@ let searchQuery = "";
 let editingPinId = null;
 let editingPinImage = null;
 let pinImageRemoved = false;
+let pendingPinImageFiles = [];
+const pinImagePreviewUrls = new Map();
 let activeDrawerPin = null;
 let activeLightboxImages = [];
 let activeLightboxIndex = 0;
@@ -266,13 +265,6 @@ function getPinImageUrls(pin) {
     return one ? [one] : [];
   }
   return [];
-}
-
-function parseImageLines(text) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
 }
 
 function getImageDownloadFilename(title, imageUrl) {
@@ -1573,46 +1565,109 @@ async function loadData() {
   scheduleMapResize();
 }
 
+function revokePinImagePreviewUrls() {
+  for (const url of pinImagePreviewUrls.values()) {
+    URL.revokeObjectURL(url);
+  }
+  pinImagePreviewUrls.clear();
+}
+
+function syncPinImageFileInput() {
+  if (!pinImageFileInput) {
+    return;
+  }
+  const dt = new DataTransfer();
+  pendingPinImageFiles.forEach((file) => dt.items.add(file));
+  pinImageFileInput.files = dt.files;
+}
+
+function getPinImagePreviewSources() {
+  if (pendingPinImageFiles.length) {
+    return pendingPinImageFiles.map((file, index) => ({
+      kind: "file",
+      index,
+      file,
+      label: file.name
+    }));
+  }
+  if (!pinImageRemoved && editingPinImage.length) {
+    return editingPinImage.map((src, index) => ({
+      kind: "existing",
+      index,
+      src: normalizeImagePath(src),
+      label: ""
+    }));
+  }
+  return [];
+}
+
+function removePinImagePreviewItem(item) {
+  if (item.kind === "file") {
+    pendingPinImageFiles = pendingPinImageFiles.filter((_, index) => index !== item.index);
+    syncPinImageFileInput();
+  } else {
+    editingPinImage = editingPinImage.filter((_, index) => index !== item.index);
+    if (!editingPinImage.length) {
+      pinImageRemoved = true;
+    }
+  }
+  renderPinImagePreviews();
+}
+
+function renderPinImagePreviews() {
+  if (!pinImagePreviewList) {
+    return;
+  }
+
+  revokePinImagePreviewUrls();
+  const sources = getPinImagePreviewSources();
+  pinImagePreviewList.replaceChildren();
+
+  if (!sources.length) {
+    pinImagePreviewList.hidden = true;
+    return;
+  }
+
+  pinImagePreviewList.hidden = false;
+  sources.forEach((item, previewIndex) => {
+    const figure = document.createElement("figure");
+    figure.className = "pin-image-field__preview";
+
+    const media = document.createElement("div");
+    media.className = "pin-image-field__preview-media";
+
+    const img = document.createElement("img");
+    if (item.kind === "file") {
+      const previewUrl = URL.createObjectURL(item.file);
+      pinImagePreviewUrls.set(previewIndex, previewUrl);
+      img.src = previewUrl;
+      img.alt = item.label;
+    } else {
+      img.src = item.src;
+      img.alt = item.label;
+    }
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "pin-image-field__remove";
+    removeBtn.setAttribute("aria-label", "ลบรูป");
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => removePinImagePreviewItem(item));
+
+    media.append(img, removeBtn);
+    figure.append(media);
+    pinImagePreviewList.append(figure);
+  });
+}
+
 function resetPinImageField() {
   pinImageRemoved = false;
   editingPinImage = [];
-  pinImageFileInput.value = "";
-  pinImageUrlInput.value = "";
-  pinImagePreview.hidden = true;
-  pinImagePreviewImg.removeAttribute("src");
-  pinImagePreviewImg.alt = "";
-}
-
-function showPinImagePreview(src, alt = "") {
-  if (!src) {
-    pinImagePreview.hidden = true;
-    pinImagePreviewImg.removeAttribute("src");
-    pinImagePreviewImg.alt = "";
-    return;
+  pendingPinImageFiles = [];
+  if (pinImageFileInput) {
+    pinImageFileInput.value = "";
   }
-
-  pinImagePreviewImg.src = src;
-  pinImagePreviewImg.alt = alt;
-  pinImagePreview.hidden = false;
-}
-
-function removePinImageFromForm() {
-  const hasPendingUpload = (pinImageFileInput.files?.length || 0) > 0;
-  editingPinImage = [];
-  pinImageUrlInput.value = "";
-  if (hasPendingUpload) {
-    pinImageRemoved = false;
-    const file = pinImageFileInput.files[0];
-    const previewUrl = URL.createObjectURL(file);
-    showPinImagePreview(previewUrl, file.name);
-    pinImagePreviewImg.onload = () => {
-      URL.revokeObjectURL(previewUrl);
-    };
-    return;
-  }
-  pinImageRemoved = true;
-  pinImageFileInput.value = "";
-  showPinImagePreview("");
+  renderPinImagePreviews();
 }
 
 async function uploadPinImage(file, pinId) {
@@ -1638,16 +1693,12 @@ async function uploadPinImage(file, pinId) {
 }
 
 async function resolvePinImageForSave(pinId) {
-  const files = [...(pinImageFileInput.files || [])];
-  const imageUrls = parseImageLines(pinImageUrlInput.value);
+  const files = pendingPinImageFiles.length
+    ? pendingPinImageFiles
+    : [...(pinImageFileInput?.files || [])];
 
   if (files.length) {
-    const uploaded = await Promise.all(files.map((file) => uploadPinImage(file, pinId)));
-    return [...uploaded, ...imageUrls];
-  }
-
-  if (imageUrls.length) {
-    return imageUrls;
+    return Promise.all(files.map((file) => uploadPinImage(file, pinId)));
   }
 
   if (pinImageRemoved) {
@@ -1691,9 +1742,11 @@ function openPinModalForEdit(pin) {
   contactLineInput.value = contacts.line;
   contactTiktokInput.value = contacts.tiktok;
   communityTypeInput.value = getPinType(pin);
-  pinImageFileInput.value = "";
-  pinImageUrlInput.value = editingPinImage.join("\n");
-  showPinImagePreview(normalizeImagePath(editingPinImage[0] || ""), pin.name);
+  pendingPinImageFiles = [];
+  if (pinImageFileInput) {
+    pinImageFileInput.value = "";
+  }
+  renderPinImagePreviews();
   pinModalTitle.textContent = "แก้ไขหมุดชุมชน";
   pinSubmitBtn.textContent = "บันทึก";
   pinModal.hidden = false;
@@ -1938,52 +1991,17 @@ document.addEventListener("keydown", (event) => {
   }
 });
 pinForm.addEventListener("submit", savePinFromForm);
-pinImageFileInput.addEventListener("change", () => {
+pinImageFileInput?.addEventListener("change", () => {
   const files = [...(pinImageFileInput.files || [])];
   if (!files.length) {
-    const textImages = parseImageLines(pinImageUrlInput.value);
-    if (textImages.length) {
-      showPinImagePreview(normalizeImagePath(textImages[0]));
-    } else if (editingPinImage.length && !pinImageRemoved) {
-      showPinImagePreview(normalizeImagePath(editingPinImage[0]));
-    } else {
-      showPinImagePreview("");
-    }
+    renderPinImagePreviews();
     return;
   }
 
   pinImageRemoved = false;
-  const previewUrl = URL.createObjectURL(files[0]);
-  showPinImagePreview(previewUrl, files[0].name);
-  pinImagePreviewImg.onload = () => {
-    URL.revokeObjectURL(previewUrl);
-  };
+  pendingPinImageFiles = files;
+  renderPinImagePreviews();
 });
-pinImageUrlInput.addEventListener("input", () => {
-  const imageUrls = parseImageLines(pinImageUrlInput.value);
-  if (imageUrls.length) {
-    pinImageRemoved = false;
-    pinImageFileInput.value = "";
-    showPinImagePreview(normalizeImagePath(imageUrls[0]));
-    return;
-  }
-
-  const pendingFiles = [...(pinImageFileInput.files || [])];
-  if (pendingFiles.length) {
-    pinImageRemoved = false;
-    const previewUrl = URL.createObjectURL(pendingFiles[0]);
-    showPinImagePreview(previewUrl, pendingFiles[0].name);
-    pinImagePreviewImg.onload = () => {
-      URL.revokeObjectURL(previewUrl);
-    };
-    return;
-  }
-
-  pinImageRemoved = true;
-  pinImageFileInput.value = "";
-  showPinImagePreview("");
-});
-removePinImageBtn.addEventListener("click", removePinImageFromForm);
 
 typeFilterSelect?.addEventListener("change", refreshMapData);
 
