@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+*.tmp
+tmp-*
+page28.html
+data/community-source.csv
+README.md
+Dockerfile
+docker-compose.yml
+.dockerignore
